@@ -21,7 +21,9 @@ public class SqlExpression<TEntity>
         Expression.New(typeof(TEntity).GetConstructors()[0])).Compile();
 
     private readonly List<(string, string?)> _whereStatements = [];
+    private readonly List<(string, string?)> _havingStatements = [];
     private readonly List<(string, string)> _setStatements = [];
+    private readonly List<string> _groupByStatements = [];
     private readonly StringBuilder _orderByBuilder = new();
     private readonly DynamicParameters _parameters = new();
     private string? _selectQuery;
@@ -71,6 +73,53 @@ public class SqlExpression<TEntity>
             throw new ArgumentNullException(nameof(selector));
         }
 
+        var columns = ResolveColumnNames(selector);
+
+        // Create the select query
+        var tableName = Resolvers.Table(EntityType, SqlBuilder);
+        _selectQuery = $"select {string.Join(", ", columns)} from {tableName}";
+        return this;
+    }
+
+    /// <summary>
+    /// Groups the results by the specified columns.
+    /// </summary>
+    /// <param name="selector">The columns to group by.
+    /// E.g. <code>x => new { x.Foo, x.Bar }</code>.</param>
+    /// <returns>The current <see cref="SqlExpression{TEntity}"/> instance.</returns>
+    public virtual SqlExpression<TEntity> GroupBy(Expression<Func<TEntity, object>> selector)
+    {
+        if (selector == null)
+        {
+            throw new ArgumentNullException(nameof(selector));
+        }
+
+        var columns = ResolveColumnNames(selector);
+        _groupByStatements.AddRange(columns);
+        return this;
+    }
+
+    private IEnumerable<string> ResolveColumnNames(Expression<Func<TEntity, object>> selector)
+    {
+        if (selector.Body.NodeType == ExpressionType.MemberAccess)
+        {
+            var memberExpression = (MemberExpression)selector.Body;
+            if (memberExpression.Member is PropertyInfo property)
+            {
+                return new[] { Resolvers.Column(property, SqlBuilder) };
+            }
+        }
+
+        if (selector.Body.NodeType == ExpressionType.Convert &&
+            ((UnaryExpression)selector.Body).Operand.NodeType == ExpressionType.MemberAccess)
+        {
+            var memberExpression = (MemberExpression)((UnaryExpression)selector.Body).Operand;
+            if (memberExpression.Member is PropertyInfo property)
+            {
+                return new[] { Resolvers.Column(property, SqlBuilder) };
+            }
+        }
+
         PropertyInfo[]? props = null;
 
         // Get properties from expression
@@ -101,12 +150,7 @@ public class SqlExpression<TEntity>
                 nameof(selector));
         }
 
-        var columns = props.Select(p => Resolvers.Column(p, SqlBuilder));
-
-        // Create the select query
-        var tableName = Resolvers.Table(EntityType, SqlBuilder);
-        _selectQuery = $"select {string.Join(", ", columns)} from {tableName}";
-        return this;
+        return props.Select(p => Resolvers.Column(p, SqlBuilder));
     }
 
     /// <summary>
@@ -189,6 +233,67 @@ public class SqlExpression<TEntity>
     {
         var sqlExpression = VisitExpression(expression).ToString()!;
         _whereStatements.Add((sqlExpression, _whereStatements.Count == 0 ? null : conditionOperator));
+    }
+
+    /// <summary>
+    /// Builds a SQL expression for the specified having expression.
+    /// </summary>
+    /// <param name="expression">The having expression on the entity.</param>
+    /// <returns>The current <see cref="SqlExpression{TEntity}"/> instance.</returns>
+    public virtual SqlExpression<TEntity> Having(Expression<Func<TEntity, bool>>? expression)
+    {
+        if (expression != null)
+        {
+            AppendToHaving("and", expression);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds another having-statement with the 'and' operator.
+    /// </summary>
+    /// <param name="expression">The having expression on the entity.</param>
+    /// <returns>The current <see cref="SqlExpression{TEntity}"/> instance.</returns>
+    public virtual SqlExpression<TEntity> AndHaving(Expression<Func<TEntity, bool>>? expression)
+    {
+        if (_havingStatements.Count == 0)
+        {
+            throw new InvalidOperationException("Start the having statement with the 'Having' method.");
+        }
+
+        if (expression != null)
+        {
+            AppendToHaving("and", expression);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds another having-statement with the 'or' operator to the current expression.
+    /// </summary>
+    /// <param name="expression">The having expression on the entity.</param>
+    /// <returns>The current <see cref="SqlExpression{TEntity}"/> instance.</returns>
+    public virtual SqlExpression<TEntity> OrHaving(Expression<Func<TEntity, bool>>? expression)
+    {
+        if (_havingStatements.Count == 0)
+        {
+            throw new InvalidOperationException("Start the having statement with the 'Having' method.");
+        }
+
+        if (expression != null)
+        {
+            AppendToHaving("or", expression);
+        }
+
+        return this;
+    }
+
+    private void AppendToHaving(string? conditionOperator, Expression expression)
+    {
+        var sqlExpression = VisitExpression(expression).ToString()!;
+        _havingStatements.Add((sqlExpression, _havingStatements.Count == 0 ? null : conditionOperator));
     }
 
     /// <summary>
@@ -736,6 +841,48 @@ public class SqlExpression<TEntity>
             if (whereBuilder.Length > 0)
             {
                 query += whereBuilder.ToString();
+            }
+        }
+
+        if (_groupByStatements.Count > 0)
+        {
+            query += " group by " + string.Join(", ", _groupByStatements);
+        }
+
+        if (_havingStatements.Count > 0)
+        {
+            var havingBuilder = new StringBuilder();
+            foreach (var (sql, conditionOperator) in _havingStatements)
+            {
+                if (havingBuilder.Length == 0)
+                {
+                    havingBuilder.Append(" having ");
+                }
+                else if (!string.IsNullOrEmpty(conditionOperator))
+                {
+                    havingBuilder.Append(' ').Append(conditionOperator).Append(' ');
+                }
+                else
+                {
+                    throw new Exception("Expected condition operator with multiple having statements.");
+                }
+
+                if (_havingStatements.Count > 1)
+                {
+                    havingBuilder.Append('(');
+                }
+
+                havingBuilder.Append(sql);
+
+                if (_havingStatements.Count > 1)
+                {
+                    havingBuilder.Append(')');
+                }
+            }
+
+            if (havingBuilder.Length > 0)
+            {
+                query += havingBuilder.ToString();
             }
         }
 
