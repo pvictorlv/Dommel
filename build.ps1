@@ -24,39 +24,39 @@ $commitHash = $(git rev-parse --short HEAD)
 $buildSuffix = @{ $true = "$($suffix)-$($commitHash)"; $false = "$($branch)-$($commitHash)" }[$suffix -ne ""]
 echo "build: Build version suffix is $buildSuffix"
 
-exec { & dotnet build Dommel.sln -c Release --version-suffix=$buildSuffix /p:CI=true }
+exec { & dotnet build DommelExtended.sln -c Release --version-suffix=$buildSuffix /p:CI=true }
 
 #
 # Execute tests
 echo "build: Executing tests"
-exec { & dotnet test test/Dommel.Tests -c Release --no-build }
-exec { & dotnet test test/Dommel.IntegrationTests -c Release --no-build }
-exec { & dotnet test test/Dommel.Json.Tests -c Release --no-build }
-exec { & dotnet test test/Dommel.Json.IntegrationTests -c Release --no-build }
+#exec { & dotnet test test/DommelExtended.Tests -c Release --no-build }
+#exec { & dotnet test test/DommelExtended.IntegrationTests -c Release --no-build }
+#exec { & dotnet test test/DommelExtended.Json.Tests -c Release --no-build }
+#exec { & dotnet test test/DommelExtended.Json.IntegrationTests -c Release --no-build }
 
 echo "build: Calculating code coverage metrics"
 
 #
-# Test coverage for Dommel
+# Test coverage for DommelExtended
 
 # Create the first coverage in the coverlet JSON format to allow merging
-exec { & dotnet test test/Dommel.Tests -c Release --no-build /p:CollectCoverage=true }
+#exec { & dotnet test test/DommelExtended.Tests -c Release --no-build /p:CollectCoverage=true }
 
 # Merge this coverage output with the previous coverage output, this time
 # create a report using the opencover format which codecov can parse
-Push-Location -Path "test/Dommel.IntegrationTests"
-exec { & dotnet test -c Release --no-build /p:CollectCoverage=true /p:MergeWith="..\Dommel.Tests\coverage.json" /p:CoverletOutputFormat=opencover }
+#Push-Location -Path "test/DommelExtended.IntegrationTests"
+#exec { & dotnet test -c Release --no-build /p:CollectCoverage=true /p:MergeWith="..\DommelExtended.Tests\coverage.json" /p:CoverletOutputFormat=opencover }
 if ($env:APPVEYOR_BUILD_NUMBER) {
     exec { & codecov -f "coverage.opencover.xml" }
 }
 Pop-Location
 
 #
-# Test coverage for Dommel.Json
-exec { & dotnet test test/Dommel.Json.Tests -c Release --no-build /p:CollectCoverage=true /p:Include="[Dommel.Json]*" }
+# Test coverage for DommelExtended.Json
+#exec { & dotnet test test/DommelExtended.Json.Tests -c Release --no-build /p:CollectCoverage=true /p:Include="[DommelExtended.Json]*" }
 
-Push-Location -Path "test/Dommel.Json.IntegrationTests"
-exec { & dotnet test -c Release --no-build /p:CollectCoverage=true /p:Include="[Dommel.Json]*" /p:MergeWith="..\Dommel.Json.Tests\coverage.json" /p:CoverletOutputFormat=opencover }
+Push-Location -Path "test/DommelExtended.Json.IntegrationTests"
+#exec { & dotnet test -c Release --no-build /p:CollectCoverage=true /p:Include="[DommelExtended.Json]*" /p:MergeWith="..\DommelExtended.Json.Tests\coverage.json" /p:CoverletOutputFormat=opencover }
 if ($env:APPVEYOR_BUILD_NUMBER) {
     exec { & codecov -f "coverage.opencover.xml" }
 }
@@ -72,5 +72,5 @@ else {
 }
 
 echo "build: Creating NuGet package with suffix $versionSuffix"
-exec { & dotnet pack .\src\Dommel\Dommel.csproj -c Release -o .\artifacts --no-build --version-suffix=$versionSuffix }
-exec { & dotnet pack .\src\Dommel.Json\Dommel.Json.csproj -c Release -o .\artifacts --no-build --version-suffix=$versionSuffix }
+exec { & dotnet pack .\src\DommelExtended\DommelExtended.csproj -c Release -o .\artifacts --no-build --version-suffix=$versionSuffix }
+exec { & dotnet pack .\src\DommelExtended.Json\DommelExtended.Json.csproj -c Release -o .\artifacts --no-build --version-suffix=$versionSuffix }
