@@ -1,14 +1,14 @@
 <Project>
   <PropertyGroup>
     <Copyright>Copyright © Henk Mollema 2014</Copyright>
-    <VersionPrefix>3.5.1</VersionPrefix>
-    <Authors>Henk Mollema</Authors>
+    <VersionPrefix>3.5.2</VersionPrefix>
+    <Authors>Henk Mollema, Paulo Victor Lund</Authors>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <PackageProjectUrl>https://github.com/pvictorlv/DommelExtended</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/pvictorlv/Dommel/tree/extended</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/pvictorlv/DommelExtended</RepositoryUrl>
+    <RepositoryUrl>https://github.com/pvictorlv/Dommel/tree/extended</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>embedded</DebugType>
